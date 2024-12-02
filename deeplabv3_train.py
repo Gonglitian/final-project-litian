@@ -1,22 +1,23 @@
 import os
 import time
 import datetime
-
+import numpy as np
 import torch
 
-from src import deeplabv3_resnet50
+from src import deeplabv3_resnet101
 from train_utils import train_one_epoch, evaluate, create_lr_scheduler
 from camvid_dataset import get_camvid_dataset
 
-# to avoid the warning of albumentations
-os.environ['NO_ALBUMENTATIONS_UPDATE'] = '1'
+
 
 def create_model(aux, num_classes, pretrain=True):
-    model = deeplabv3_resnet50(aux=aux, num_classes=num_classes)
+    # print if pretrain is True
+    print("pretrain: ", pretrain)
+    model = deeplabv3_resnet101(aux=aux, num_classes=num_classes)
 
     if pretrain:
         weights_dict = torch.load(
-            "deeplabv3_resnet50_coco.pth", map_location='cpu')
+            "deeplabv3_resnet101_coco.pth", map_location='cpu')
 
         if num_classes != 21:
             # 官方提供的预训练权重是21类(包括背景)
@@ -64,7 +65,7 @@ def main(args):
                                             #  collate_fn=valid_dataset.collate_fn
                                              )
 
-    model = create_model(aux=args.aux, num_classes=num_classes,pretrain=False)
+    model = create_model(aux=args.aux, num_classes=num_classes,pretrain=args.pretrain)
     model.to(device)
 
     params_to_optimize = [
@@ -88,16 +89,6 @@ def main(args):
     lr_scheduler = create_lr_scheduler(
         optimizer, len(train_loader), args.epochs, warmup=True)
 
-    # import matplotlib.pyplot as plt
-    # lr_list = []
-    # for _ in range(args.epochs):
-    #     for _ in range(len(train_loader)):
-    #         lr_scheduler.step()
-    #         lr = optimizer.param_groups[0]["lr"]
-    #         lr_list.append(lr)
-    # plt.plot(range(len(lr_list)), lr_list)
-    # plt.show()
-
     if args.resume:
         checkpoint = torch.load(args.resume, map_location='cpu')
         model.load_state_dict(checkpoint['model'])
@@ -108,6 +99,15 @@ def main(args):
             scaler.load_state_dict(checkpoint["scaler"])
 
     start_time = time.time()
+    # note
+    if not os.path.exists(f"metrics/{args.exp_name}"):
+        os.mkdir(f"metrics/{args.exp_name}")
+
+    loss_list = []
+    lr_list = []
+    global_correct_list = []
+    mean_IoU_list = []
+
     for epoch in range(args.start_epoch, args.epochs):
         mean_loss, lr = train_one_epoch(model, optimizer, train_loader, device, epoch,
                                         lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
@@ -116,6 +116,11 @@ def main(args):
                            num_classes=num_classes)
         val_info = str(confmat)
         print(val_info)
+        loss_list.append(mean_loss)
+        lr_list.append(lr)
+        global_correct_list.append(confmat.acc_global.item() * 100)
+        mean_IoU_list.append(confmat.iu.mean().item() * 100)
+
         # write into txt
         with open(results_file, "a") as f:
             # 记录每个epoch对应的train_loss、lr以及验证集各指标
@@ -132,6 +137,13 @@ def main(args):
         if args.amp:
             save_file["scaler"] = scaler.state_dict()
         torch.save(save_file, "save_weights/model_{}.pth".format(epoch))
+    # save four metrics as npy file
+
+    # note
+    np.save(f"metrics/{args.exp_name}/loss_list.npy", np.array(loss_list))
+    np.save(f"metrics/{args.exp_name}/lr_list.npy", np.array(lr_list))
+    np.save(f"metrics/{args.exp_name}/global_correct_list.npy", np.array(global_correct_list))
+    np.save(f"metrics/{args.exp_name}/mean_IoU_list.npy", np.array(mean_IoU_list))
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -164,9 +176,13 @@ def parse_args():
     # Mixed precision training parameters
     parser.add_argument("--amp", default=False, type=bool,
                         help="Use torch.cuda.amp for mixed precision training")
-
+    parser.add_argument("--exp-name", default="exp", type=str,
+                        help="experiment name")
+    parser.add_argument("--pretrain", default=False, type=bool,
+                        help="whether to use pretrain model")
     args = parser.parse_args()
-
+    #print all args
+    print(args)
     return args
 
 

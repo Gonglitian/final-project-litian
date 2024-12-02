@@ -6,6 +6,8 @@ import PIL.ImageOps
 import os
 import shutil
 import glob
+# to avoid the warning of albumentations
+os.environ['NO_ALBUMENTATIONS_UPDATE'] = '1'
 import albumentations
 import matplotlib.pyplot as plt
 

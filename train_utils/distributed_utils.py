@@ -20,7 +20,10 @@ class SmoothedValue(object):
         self.total = 0.0
         self.count = 0
         self.fmt = fmt
-
+        # note
+        self.acc_global = 0.0
+        self.acc =0.0
+        self.iu = 0.0
     def update(self, value, n=1):
         self.deque.append(value)
         self.count += n
@@ -98,7 +101,7 @@ class ConfusionMatrix(object):
         # 计算每个类别的准确率
         acc = torch.diag(h) / h.sum(1)
         # 计算每个类别预测与真实目标的iou
-        iu = torch.diag(h) / (h.sum(1) + h.sum(0) - torch.diag(h))
+        iu = torch.diag(h) / (h.sum(1) + h.sum(0) - torch.diag(h)+1e-6)
         return acc_global, acc, iu
 
     def reduce_from_all_processes(self):
@@ -110,16 +113,17 @@ class ConfusionMatrix(object):
         torch.distributed.all_reduce(self.mat)
 
     def __str__(self):
-        acc_global, acc, iu = self.compute()
+        self.acc_global, self.acc, self.iu = self.compute()
+
         return (
             'global correct: {:.1f}\n'
             'average row correct: {}\n'
             'IoU: {}\n'
             'mean IoU: {:.1f}').format(
-                acc_global.item() * 100,
-                ['{:.1f}'.format(i) for i in (acc * 100).tolist()],
-                ['{:.1f}'.format(i) for i in (iu * 100).tolist()],
-                iu.mean().item() * 100)
+                self.acc_global.item() * 100,
+                ['{:.1f}'.format(i) for i in (self.acc * 100).tolist()],
+                ['{:.1f}'.format(i) for i in (self.iu * 100).tolist()],
+                self.iu.mean().item() * 100)
 
 
 class MetricLogger(object):
