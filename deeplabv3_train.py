@@ -6,8 +6,8 @@ import torch
 
 from src import deeplabv3_resnet101
 from train_utils import train_one_epoch, evaluate, create_lr_scheduler
-from camvid_dataset import get_camvid_dataset
-
+# from camvid_dataset import get_camvid_dataset
+from carla_dataset import get_carla_dataset
 
 
 def create_model(aux, num_classes, pretrain=True):
@@ -48,7 +48,8 @@ def main(args):
 
     num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
     # print("Using {} dataloader workers".format(num_workers))
-    train_dataset, valid_dataset = get_camvid_dataset(dataset_path)
+    # train_dataset, valid_dataset = get_camvid_dataset(dataset_path)
+    train_dataset, valid_dataset = get_carla_dataset(dataset_path)
     print(len(train_dataset), len(valid_dataset))
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=batch_size,

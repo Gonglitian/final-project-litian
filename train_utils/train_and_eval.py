@@ -7,6 +7,7 @@ def criterion(inputs, target):
     losses = {}
     for name, x in inputs.items():
         # 忽略target中值为255的像素，255的像素是目标边缘或者padding填充
+        # note: X shape: torch.Size([4, 33, 224, 224]), Target shape: torch.Size([4, 224, 224])
         losses[name] = nn.functional.cross_entropy(x, target, ignore_index=255)
 
     if len(losses) == 1:
@@ -41,6 +42,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler, 
 
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         image, target = image.to(device), target.to(device)
+        # note: taget shape is [batch_size, H, W]
+        # print(target[0][0][0]) # tensor(21, device='cuda:0')
         with torch.cuda.amp.autocast(enabled=scaler is not None):
             output = model(image)
             loss = criterion(output, target)
