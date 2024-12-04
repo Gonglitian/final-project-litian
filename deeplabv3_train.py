@@ -10,14 +10,14 @@ from train_utils import train_one_epoch, evaluate, create_lr_scheduler
 from carla_dataset import get_carla_dataset
 
 
-def create_model(aux, num_classes, pretrain=True):
+def create_model(aux, num_classes, pretrain=True, pretrain_path=None):
     # print if pretrain is True
     print("pretrain: ", pretrain)
     model = deeplabv3_resnet101(aux=aux, num_classes=num_classes)
 
     if pretrain:
         weights_dict = torch.load(
-            "deeplabv3_resnet101_coco.pth", map_location='cpu')
+            pretrain_path, map_location='cpu')
 
         if num_classes != 21:
             # 官方提供的预训练权重是21类(包括背景)
@@ -66,7 +66,8 @@ def main(args):
                                             #  collate_fn=valid_dataset.collate_fn
                                              )
 
-    model = create_model(aux=args.aux, num_classes=num_classes,pretrain=args.pretrain)
+    model = create_model(aux=args.aux, num_classes=num_classes,
+                         pretrain=args.pretrain, pretrain_path=args.pretrain_path)
     model.to(device)
 
     params_to_optimize = [
@@ -181,6 +182,9 @@ def parse_args():
                         help="experiment name")
     parser.add_argument("--pretrain", default=False, type=bool,
                         help="whether to use pretrain model")
+    # pretrain model path
+    parser.add_argument("--pretrain-path", default="./deeplabv3_resnet101_coco.pth", type=str,
+                        help="pretrain model path")
     args = parser.parse_args()
     #print all args
     print(args)
