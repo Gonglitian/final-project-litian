@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision
 import matplotlib.pyplot as plt
-import albumentations
+import albumentations as A
 import numpy as np
 import random
 from PIL import Image
@@ -18,6 +18,7 @@ import PIL.ImageOps
 import os
 import shutil
 import glob
+from albumentations.pytorch import ToTensorV2
 # to avoid the warning of albumentations
 os.environ['NO_ALBUMENTATIONS_UPDATE'] = '1'
 
@@ -176,22 +177,30 @@ def get_carla_dataset(dataset_root):
     valid_labels.sort()
 
     # Dataset Transoframtions which apply in loading phase
-    train_image_transform = albumentations.Compose([
-        albumentations.Resize(224, 224, always_apply=True),
-        albumentations.Normalize(
-            always_apply=True)
-    ])
-    valid_image_transform = albumentations.Compose([
-        albumentations.Resize(224, 224, always_apply=True),
-        albumentations.Normalize(
-            always_apply=True)
-    ])
-    train_mask_transform = albumentations.Compose([
-        albumentations.Resize(224, 224, always_apply=True),
-    ])
-    valid_mask_transform = albumentations.Compose([
-        albumentations.Resize(224, 224, always_apply=True),
-    ])
+    def get_transforms(train=True):
+        if train:
+            return A.Compose([
+                A.Resize(400, 520),
+                A.RandomCrop(height=352, width=480),
+                A.HorizontalFlip(p=0.5),
+                A.Rotate(limit=15, p=0.5),
+                A.GaussianBlur(blur_limit=(3, 5), p=0.3),
+                A.ColorJitter(brightness=0.2, contrast=0.2,
+                            saturation=0.2, hue=0.1),
+                A.Normalize(mean=(0.390, 0.405, 0.414), std=(0.274, 0.285, 0.297)),
+                ToTensorV2()
+            ])
+        else:
+            return A.Compose([
+                A.Resize(352, 480),
+                A.Normalize(mean=(0.390, 0.405, 0.414), std=(0.274, 0.285, 0.297)),
+                ToTensorV2()
+            ])
+    
+    train_image_transform = get_transforms(train=True)
+    valid_image_transform = get_transforms(train=False)
+    train_mask_transform = get_transforms(train=True)
+    valid_mask_transform = get_transforms(train=False)
 
     # Define train and validation datasets
     return (CarlaDataset(train_images, train_labels, train_image_transform,
