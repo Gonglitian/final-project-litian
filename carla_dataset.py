@@ -152,7 +152,7 @@ def cat_list(images, fill_value=0):
 def get_carla_dataset(dataset_root):
     # train_images = glob.glob(f"{dataset_path}//*")
     train_txt = os.path.join(
-        dataset_root, r"split_data\train.txt")
+        dataset_root, "split_data/train.txt")
     train_images = []
     train_labels = []
     with open(train_txt, "r") as f:
@@ -162,7 +162,7 @@ def get_carla_dataset(dataset_root):
             train_labels.append(dataset_root + '/ori_label/' + path.strip())
     # get val
     val_txt = os.path.join(
-        dataset_root, r"split_data\val.txt")
+        dataset_root, "split_data/val.txt")
     valid_images = []
     valid_labels = []
     with open(val_txt, "r") as f:
@@ -188,13 +188,13 @@ def get_carla_dataset(dataset_root):
                 A.ColorJitter(brightness=0.2, contrast=0.2,
                             saturation=0.2, hue=0.1),
                 A.Normalize(mean=(0.390, 0.405, 0.414), std=(0.274, 0.285, 0.297)),
-                ToTensorV2()
+                # ToTensorV2()
             ])
         else:
             return A.Compose([
                 A.Resize(352, 480),
                 A.Normalize(mean=(0.390, 0.405, 0.414), std=(0.274, 0.285, 0.297)),
-                ToTensorV2()
+                # ToTensorV2()
             ])
     
     train_image_transform = get_transforms(train=True)
